@@ -1,0 +1,11 @@
+build
+*.egg-info
+**/__pycache__
+dist
+tkbc/src_data
+**/.nfs*
+
+runs
+data.tar.gz
+
+data
