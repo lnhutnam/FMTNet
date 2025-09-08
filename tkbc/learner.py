@@ -312,8 +312,8 @@ def main():
         'TNTComplEx': TNTComplEx(sizes, args.rank, no_time_emb=args.no_time_emb),
         'TPComplExMetaFormer': TPComplExMetaFormer(
             sizes=sizes, 
-            rank=args.rank, 
-            num_metaformer_layers=2, 
+            rank=args.rank, # Thay đổi chiều nhúng: 32, 64, < 90, 128 
+            num_metaformer_layers=2, # Thay đổi độ sâu của metaformer, tăng lên nếu cần 2, 4, 6, 8
             mlp_ratio=4.0, 
             drop_path_rate=0.1, 
             no_time_emb=args.no_time_emb

@@ -8,11 +8,11 @@ python tkbc/learner.py --dataset yago15k --model TNTComplEx --rank 189 --no_time
 
 
 # Training
-python tkbc/learner.py --dataset ICEWS14 --model TNTComplExMetaFormer --rank 156 --emb_reg 1e-2 --time_reg 1e-2
+python tkbc/learner.py --dataset ICEWS14 --model TNTComplExMetaFormer --rank 64 --emb_reg 1e-2 --time_reg 1e-2
 
-python tkbc/learner.py --dataset ICEWS05-15 --model TNTComplExMetaFormer --rank 128 --emb_reg 1e-3 --time_reg 1
+python tkbc/learner.py --dataset ICEWS05-15 --model TNTComplExMetaFormer --rank 64 --emb_reg 1e-3 --time_reg 1
 
-python tkbc/learner.py --dataset yago15k --model TNTComplExMetaFormer --rank 189 --no_time_emb --emb_reg 1e-2 --time_reg 1
+python tkbc/learner.py --dataset yago15k --model TNTComplExMetaFormer --rank 64 --no_time_emb --emb_reg 1e-2 --time_reg 1
 
 
 # Testing

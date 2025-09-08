@@ -9,19 +9,35 @@ from models.bases import TKBCModel
 
 class FourierTransform(nn.Module):
     """
-    Fourier Transform token mixer that operates in frequency domain
+    Fourier Transform token mixer with integrated MLPs for complex numbers and spatial domain
+    Performs FFT -> frequency domain processing -> MLP (complex numbers) -> inverse FFT -> MLP (spatial domain)
     """
-    def __init__(self, dim, **kwargs):
+    def __init__(self, dim, mlp_ratio=4., act_layer=nn.GELU, drop=0., **kwargs):
         super().__init__()
         self.dim = dim
-        # Learnable scaling factors for frequency components
-        self.freq_weights = nn.Parameter(torch.ones(dim // 2 + 1, dtype=torch.float32))
-        # Optional learnable phase shifts
-        self.phase_shifts = nn.Parameter(torch.zeros(dim // 2 + 1, dtype=torch.float32))
         
+        # Learnable scaling factors for frequency components
+        # self.freq_weights = nn.Parameter(torch.ones(dim // 2 + 1, dtype=torch.float32))
+        # Learnable phase shifts
+        # self.phase_shifts = nn.Parameter(torch.zeros(dim // 2 + 1, dtype=torch.float32))
+        
+        # MLP for complex numbers in frequency domain
+        mlp_hidden_dim = int(dim * mlp_ratio)
+        self.fc1_real = nn.Linear(dim, mlp_hidden_dim)
+        self.fc1_imag = nn.Linear(dim, mlp_hidden_dim)
+        self.act = act_layer()
+        self.fc2_real = nn.Linear(mlp_hidden_dim, dim)
+        self.fc2_imag = nn.Linear(mlp_hidden_dim, dim)
+        self.drop = nn.Dropout(drop)
+        
+        # MLP for spatial domain (integrated from Mlp class)
+        self.fc1_spatial = nn.Linear(dim, mlp_hidden_dim)
+        self.fc2_spatial = nn.Linear(mlp_hidden_dim, dim)
+        self.drop_spatial = nn.Dropout(drop)
+
     def forward(self, x):
         """
-        Apply Fourier transform token mixing
+        Apply Fourier transform token mixing with MLPs for complex numbers and spatial domain
         Input: x with shape [B, C, H, W] or [B, N, C]
         """
         original_shape = x.shape
@@ -35,24 +51,65 @@ class FourierTransform(nn.Module):
         else:
             raise ValueError(f"Unsupported input shape: {original_shape}")
         
+        # Store original sequence length for inverse FFT
+        seq_length = x.shape[1]
+        
         # Apply FFT along the sequence dimension (token dimension)
         x_fft = torch.fft.rfft(x, dim=1)  # [B, N//2+1, C]
         
         # Apply learnable frequency weighting and phase shifts
-        freq_weights = self.freq_weights.unsqueeze(0).unsqueeze(-1)  # [1, N//2+1, 1]
-        phase_shifts = self.phase_shifts.unsqueeze(0).unsqueeze(-1)  # [1, N//2+1, 1]
+        # freq_weights = self.freq_weights.unsqueeze(0).unsqueeze(-1)  # [1, N//2+1, 1]
+        # phase_shifts = self.phase_shifts.unsqueeze(0).unsqueeze(-1)  # [1, N//2+1, 1]
         
         # Apply magnitude scaling and phase adjustment
-        magnitude = torch.abs(x_fft) * freq_weights
-        phase = torch.angle(x_fft) + phase_shifts
+        # magnitude = torch.abs(x_fft) * freq_weights
+        # phase = torch.angle(x_fft) + phase_shifts
+        magnitude = torch.abs(x_fft)
+        phase = torch.angle(x_fft)
         x_fft_modified = magnitude * torch.exp(1j * phase)
         
+        # Split into real and imaginary parts for frequency domain MLP
+        x_real = x_fft_modified.real  # [B, N//2+1, C]
+        x_imag = x_fft_modified.imag  # [B, N//2+1, C]
+        
+        # Apply MLP to real and imaginary parts separately
+        x_real_mlp = self.fc1_real(x_real)
+        x_imag_mlp = self.fc1_imag(x_imag)
+        x_real_mlp = self.act(x_real_mlp)
+        x_imag_mlp = self.act(x_imag_mlp)
+        x_real_mlp = self.drop(x_real_mlp)
+        x_imag_mlp = self.drop(x_imag_mlp)
+        x_real_mlp = self.fc2_real(x_real_mlp)
+        x_imag_mlp = self.fc2_imag(x_imag_mlp)
+        x_real_mlp = self.drop(x_real_mlp)
+        x_imag_mlp = self.drop(x_imag_mlp)
+        
+        # Recombine real and imaginary parts into complex numbers
+        x_mlp = torch.complex(x_real_mlp, x_imag_mlp)  # [B, N//2+1, C]
+        
         # Inverse FFT to get back to spatial domain
-        x_reconstructed = torch.fft.irfft(x_fft_modified, n=x.shape[1], dim=1)
+        x_reconstructed = torch.fft.irfft(x_mlp, n=seq_length, dim=1)
+        
+        # Apply spatial domain MLP
+        if len(original_shape) == 4:
+            # Reshape for spatial MLP processing
+            x_reconstructed = x_reconstructed.permute(0, 2, 1).reshape(B * H * W, C)
+            x_reconstructed = self.fc1_spatial(x_reconstructed)
+            x_reconstructed = self.act(x_reconstructed)
+            x_reconstructed = self.drop_spatial(x_reconstructed)
+            x_reconstructed = self.fc2_spatial(x_reconstructed)
+            x_reconstructed = self.drop_spatial(x_reconstructed)
+            x_reconstructed = x_reconstructed.reshape(B, H, W, C).permute(0, 3, 1, 2)
+        else:
+            x_reconstructed = self.fc1_spatial(x_reconstructed)
+            x_reconstructed = self.act(x_reconstructed)
+            x_reconstructed = self.drop_spatial(x_reconstructed)
+            x_reconstructed = self.fc2_spatial(x_reconstructed)
+            x_reconstructed = self.drop_spatial(x_reconstructed)
         
         # Reshape back to original format
         if len(original_shape) == 4:
-            x_reconstructed = x_reconstructed.transpose(-1, -2).view(B, C, H, W)
+            x_reconstructed = x_reconstructed.view(B, C, H, W)
         
         return x_reconstructed
 
@@ -81,40 +138,6 @@ class LayerNormChannel(nn.Module):
         return x
 
 
-class Mlp(nn.Module):
-    """
-    MLP module for MetaFormer blocks
-    """
-    def __init__(self, in_features, hidden_features=None, out_features=None, 
-                 act_layer=nn.GELU, drop=0.):
-        super().__init__()
-        out_features = out_features or in_features
-        hidden_features = hidden_features or in_features
-        self.fc1 = nn.Linear(in_features, hidden_features)
-        self.act = act_layer()
-        self.fc2 = nn.Linear(hidden_features, out_features)
-        self.drop = nn.Dropout(drop)
-
-    def forward(self, x):
-        # Handle channel-first format
-        if len(x.shape) == 4:
-            B, C, H, W = x.shape
-            x = x.permute(0, 2, 3, 1).reshape(B * H * W, C)
-            x = self.fc1(x)
-            x = self.act(x)
-            x = self.drop(x)
-            x = self.fc2(x)
-            x = self.drop(x)
-            x = x.reshape(B, H, W, C).permute(0, 3, 1, 2)
-        else:
-            x = self.fc1(x)
-            x = self.act(x)
-            x = self.drop(x)
-            x = self.fc2(x)
-            x = self.drop(x)
-        return x
-
-
 class DropPath(nn.Module):
     """Drop paths (Stochastic Depth) per sample"""
     def __init__(self, drop_prob=None):
@@ -134,7 +157,7 @@ class DropPath(nn.Module):
 
 class MetaFormerBlock(nn.Module):
     """
-    MetaFormer block with Fourier Transform token mixer
+    MetaFormer block with Fourier Transform token mixer (including spatial MLP)
     """
     def __init__(self, dim, 
                  token_mixer=FourierTransform, 
@@ -146,18 +169,12 @@ class MetaFormerBlock(nn.Module):
         super().__init__()
 
         self.norm1 = norm_layer(dim)
-        self.token_mixer = token_mixer(dim=dim)
-        self.norm2 = norm_layer(dim)
-        mlp_hidden_dim = int(dim * mlp_ratio)
-        self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, 
-                       act_layer=act_layer, drop=drop)
+        self.token_mixer = token_mixer(dim=dim, mlp_ratio=mlp_ratio, act_layer=act_layer, drop=drop)
         
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.use_layer_scale = use_layer_scale
         if use_layer_scale:
             self.layer_scale_1 = nn.Parameter(
-                layer_scale_init_value * torch.ones((dim)), requires_grad=True)
-            self.layer_scale_2 = nn.Parameter(
                 layer_scale_init_value * torch.ones((dim)), requires_grad=True)
 
     def forward(self, x):
@@ -165,16 +182,11 @@ class MetaFormerBlock(nn.Module):
             if len(x.shape) == 4:  # [B, C, H, W]
                 x = x + self.drop_path(
                     self.layer_scale_1.view(1, -1, 1, 1) * self.token_mixer(self.norm1(x)))
-                x = x + self.drop_path(
-                    self.layer_scale_2.view(1, -1, 1, 1) * self.mlp(self.norm2(x)))
             else:  # [B, N, C]
                 x = x + self.drop_path(
                     self.layer_scale_1 * self.token_mixer(self.norm1(x)))
-                x = x + self.drop_path(
-                    self.layer_scale_2 * self.mlp(self.norm2(x)))
         else:
             x = x + self.drop_path(self.token_mixer(self.norm1(x)))
-            x = x + self.drop_path(self.mlp(self.norm2(x)))
         return x
 
 
