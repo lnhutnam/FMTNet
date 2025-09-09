@@ -18,9 +18,9 @@ class FourierTransform(nn.Module):
         self.dim = dim
         
         # Learnable scaling factors for frequency components
-        self.freq_weights = nn.Parameter(torch.ones(dim // 2 + 1, dtype=torch.float32))
+        # self.freq_weights = nn.Parameter(torch.ones(dim // 2 + 1, dtype=torch.float32))
         # Learnable phase shifts
-        self.phase_shifts = nn.Parameter(torch.zeros(dim // 2 + 1, dtype=torch.float32))
+        # self.phase_shifts = nn.Parameter(torch.zeros(dim // 2 + 1, dtype=torch.float32))
         
         # MLP for complex numbers in frequency domain
         mlp_hidden_dim = int(dim * mlp_ratio)
@@ -59,12 +59,14 @@ class FourierTransform(nn.Module):
         x_fft = torch.fft.rfft(x, dim=1)  # [B, N//2+1, C]
         
         # Apply learnable frequency weighting and phase shifts
-        freq_weights = self.freq_weights.unsqueeze(0).unsqueeze(-1)  # [1, N//2+1, 1]
-        phase_shifts = self.phase_shifts.unsqueeze(0).unsqueeze(-1)  # [1, N//2+1, 1]
+        # freq_weights = self.freq_weights.unsqueeze(0).unsqueeze(-1)  # [1, N//2+1, 1]
+        # phase_shifts = self.phase_shifts.unsqueeze(0).unsqueeze(-1)  # [1, N//2+1, 1]
         
         # Apply magnitude scaling and phase adjustment
-        magnitude = torch.abs(x_fft) * freq_weights
-        phase = torch.angle(x_fft) + phase_shifts
+        # magnitude = torch.abs(x_fft) * freq_weights
+        # phase = torch.angle(x_fft) + phase_shifts
+        magnitude = torch.abs(x_fft)
+        phase = torch.angle(x_fft)
         x_fft_modified = magnitude * torch.exp(1j * phase)
         
         # Split into real and imaginary parts for frequency domain MLP
