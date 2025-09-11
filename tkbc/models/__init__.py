@@ -1,6 +1,7 @@
 from .ComplEx import ComplEx
 from .TComplEx import TComplEx
 from .TNTComplEx import TNTComplEx
+from .TPComplEx import TPComplEx
 from .TPComplExMetaFormer import TPComplExMetaFormer
 from .TComplExMetaFormer import TComplExMetaFormer
 from .TNTComplExMetaFormer import TNTComplExMetaFormer
