@@ -11,7 +11,7 @@ class TNTComplExMetaFormer(TKBCModel):
     """Simplified TNTComplEx with MetaFormer enhancement"""
     
     def __init__(self, sizes: Tuple[int, int, int, int], rank: int,
-                 num_blocks=2, use_fourier=True,
+                 num_blocks=1, use_fourier=True,
                  no_time_emb=False, init_size: float = 1e-2):
         super().__init__()
         self.sizes = sizes
@@ -77,7 +77,7 @@ class TNTComplExMetaFormer(TKBCModel):
         time = self.embeddings[2](x[:, 3])
         
         # Enhance lhs embedding using MetaFormer
-        enhanced = self.enhance_embeddings(lhs, rel, time)
+        enhanced = self.enhance_embeddings(lhs, rel, time, rel_no_time)
 
         # lhs = lhs + enhanced 
         lhs = self.alpha * lhs + (1 - self.alpha) * enhanced
@@ -111,7 +111,7 @@ class TNTComplExMetaFormer(TKBCModel):
         time = self.embeddings[2](x[:, 3])
         
         # Enhance lhs embedding using MetaFormer
-        enhanced = self.enhance_embeddings(lhs, rel, time)
+        enhanced = self.enhance_embeddings(lhs, rel, time, rel_no_time)
 
         # lhs = lhs + enhanced 
         lhs = self.alpha * lhs + (1 - self.alpha) * enhanced
@@ -163,7 +163,7 @@ class TNTComplExMetaFormer(TKBCModel):
         time_avg = time.mean(0).unsqueeze(0).repeat(lhs.shape[0], 1)
         
         # Enhance lhs embedding using MetaFormer
-        enhanced = self.enhance_embeddings(lhs, rel, time)
+        enhanced = self.enhance_embeddings(lhs, rel, time, rel_no_time)
 
         # lhs = lhs + enhanced 
         lhs = self.alpha * lhs + (1 - self.alpha) * enhanced
@@ -210,7 +210,7 @@ class TNTComplExMetaFormer(TKBCModel):
         time = self.embeddings[2](queries[:, 3])
         
         # Enhance lhs embedding using MetaFormer
-        enhanced = self.enhance_embeddings(lhs, rel, time)
+        enhanced = self.enhance_embeddings(lhs, rel, time, rel_no_time)
 
         # lhs = lhs + enhanced 
         lhs = self.alpha * lhs + (1 - self.alpha) * enhanced

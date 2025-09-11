@@ -76,3 +76,14 @@ python tkbc/learner.py --dataset yago15k --model TNTComplExMetaFormer --rank 156
 
 python tkbc/learner.py --dataset gdelt --model TNTComplExMetaFormer --rank 1072 --no_time_emb --emb_reg 1e-2 --time_reg 1
 ```
+
+
+```sh
+python tkbc/learner.py --dataset ICEWS14 --model TPComplExMetaFormer --rank 1594 --emb_reg 1e-2 --time_reg 1e-2 
+
+python tkbc/learner.py --dataset ICEWS05-15 --model TPComplExMetaFormer --rank 886 --emb_reg 1e-2 --time_reg 1e-2 
+
+python tkbc/learner.py --dataset yago15k --model TPComplExMetaFormer --rank 1892 --no_time_emb --emb_reg 1e-2 --time_reg 1
+
+python tkbc/learner.py --dataset gdelt --model TPComplExMetaFormer --rank 1256 --no_time_emb --emb_reg 1e-2 --time_reg 1
+```
