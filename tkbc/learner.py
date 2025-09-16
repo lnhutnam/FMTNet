@@ -40,7 +40,7 @@ def setup_logging_and_directories(args, hyperparams=None):
         session_dir = os.path.join(base_runs_dir, search_session_id)
         model_dir = os.path.join(session_dir, model_id)
     else:
-        runs_dir = "./runs"
+        runs_dir = "./runs_rank"
         model_dir = os.path.join(runs_dir, model_id)
         session_dir = None
     

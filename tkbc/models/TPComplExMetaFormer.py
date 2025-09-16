@@ -41,7 +41,7 @@ class TPComplExMetaFormer(TKBCModel):
         # Output normalization
         self.output_norm = nn.LayerNorm(2 * rank)
 
-        self.alpha = 0.85
+        self.alpha = 0.95
 
     @staticmethod
     def has_time():
